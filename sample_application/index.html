@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Signing Auth example</title>
+    <script src="/signing.auth/signing.auth.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+  </head>
+  <body>
+    <h1>Signing Auth over websocket</h1>
+    <p>
+      This is an example of using signed auth over a websocket. An initial challenge is issued by
+      the server when the client connects, this triggers the display of the login form. Enter 
+    </p>
+    <form id="login-form" style="display:none">
+      <div id="login-failed" style="display:none"></div>
+      <label for="name">Username</label><input type="text" name="username"/><br/>
+      <label for="password">Password</label><input type="password" name="password"/><br/>
+      <input type="submit" value="Log in"/>
+    </form>
+    <div id="login-success" style="display:none">
+      Yep, we're good!
+      <a id="log-out" href="#login-form">Log out</a>
+    </div>
+    <script>
+      var socket = io.connect('/'),
+        sa = new SigningAuth(socket, localStorage);
+
+      $('#login-form').bind('submit', function() {
+        $('#login-form').hide();
+        var key = $('#login-form input[name="username"]').val(),
+          secret = $('#login-form input[name="password"]').val();
+        sa.response(key, secret);
+        return false
+      });
+
+      $('#log-out').bind('click', function() {
+        sa.clearCredentials();
+        window.location.reload(true);
+      });
+
+      sa.bind('challenge', function(data, automaticResponseFailed){
+        console.log("We were challenged");
+        $('#login-form').show();
+      });
+      sa.bind('success', function(data) {
+        console.log("Yay! Success!");
+        console.log(data);
+        $('#login-success').show();
+      });
+      sa.bind('failed', function(data) {
+        console.log("Nooo! Fail!");
+        $('#login-failed').show().text(data.message);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "name": "signing_auth",
+  "version": "0.0.1",
+  "description": "Sample application demonstrating signed auth.",
+  "keywords": ["http", "security", "signing"],
+  "maintainers": [{
+    "name": "Hugo Wetterberg",
+    "email": "hugo@wetterberg.nu",
+    "web": "http://twitter.com/hugowett"
+  }],
+  "contributors": [],
+  "bugs": {
+    "mail": "hugo@wetterberg.nu",
+    "web": "https://github.com/hugowetterberg/signing_auth/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/hugowetterberg/signing_auth/blob/master/LICENSE.txt"
+    }
+  ],
+  "repositories": [{
+    "type": "git",
+    "url": "https://github.com/hugowetterberg/signing_auth.git"
+  }],
+  "dependencies": {
+    "socket.io": "=0.7.9",
+    "express": "=2.4.6"
+  },
+  "engines": {
+    "node": ">=0.4.8"
+  },
+  "directories": {},
+  "main": "./signing_auth.js"
+}

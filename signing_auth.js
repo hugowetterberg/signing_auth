@@ -15,10 +15,10 @@
       @param storage
         An object implementing the methods checkNonce(credentials, nonce, callback) where callback is callback(error, valid) 
         and getCredentials(key, callback) where callback is callback(error, credentials).
-      */    var issueChallenge, parseRequest, validateSignature;
-    function SigningAuth(storage) {
+      */    function SigningAuth(storage, connect) {
       var method, storageInterface, _i, _len;
       this.storage = storage;
+      this.connect = connect != null ? connect : null;
       storageInterface = ['checkNonce', 'getCredentials'];
       for (_i = 0, _len = storageInterface.length; _i < _len; _i++) {
         method = storageInterface[_i];
@@ -31,7 +31,7 @@
     /*
       Checks the signature of a parsed url.
       */
-    validateSignature = function(puri, requestReceived, credentials, callback) {
+    SigningAuth.prototype.validateSignature = function(puri, requestReceived, credentials, callback) {
       var key, now, request_max_time_diff, required, timestamp, _i, _len;
       required = ['signing_key', 'signing_nonce', 'signing_body_hash', 'signing_signature', 'signing_timestamp'];
       for (_i = 0, _len = required.length; _i < _len; _i++) {
@@ -78,7 +78,7 @@
       client that made the request, or false if the request wasn't properly signed.
       */
     SigningAuth.prototype.connectMiddleware = function() {
-      var justParseBody;
+      var justParseBody, serveStatic;
       justParseBody = function(req, next) {
         var data;
         data = '';
@@ -94,6 +94,9 @@
           return next();
         });
       };
+      serveStatic = this.connect ? this.connect.static(__dirname + '/public_html') : function(req, res, next) {
+        return next();
+      };
       return __bind(function(req, res, next) {
         var puri;
         if (req.body) {
@@ -103,7 +106,11 @@
         req.signedBy = false;
         puri = url.parse(req.url, true);
         if (req.method !== 'POST') {
-          return next();
+          if (req.method === 'GET' && puri.pathname.indexOf('/signing.auth/') === 0) {
+            return serveStatic(req, res, next);
+          } else {
+            return next();
+          }
         } else if (!(puri.query.signing_signature != null)) {
           return justParseBody(req, next);
         } else {
@@ -128,7 +135,7 @@
         A callback function taking the following parameters:
         error, body, puri and credentials
       */
-    parseRequest = function(req, callback) {
+    SigningAuth.prototype.parseRequest = function(req, callback) {
       var data, puri, requestReceived, shasum;
       req.setEncoding('utf-8');
       shasum = crypto.createHash('sha256');
@@ -165,43 +172,57 @@
     /*
       Starts a challenge-response handshake on a web-socket.
       */
-    issueChallenge = function(socket, callback) {
-      var challenge;
-      challenge = utilities.nonce(64);
-      return socket.emit('challenge', {
-        sign: challenge
-      }, __bind(function(data) {
+    SigningAuth.prototype.issueChallenge = function(socket, callback) {
+      var challenge, newChallenge;
+      challenge = null;
+      newChallenge = function() {
+        challenge = utilities.nonce(64);
+        socket.emit('challenge', {
+          sign: challenge
+        });
+        return null;
+      };
+      socket.on('challenge-response', __bind(function(data) {
         var failed, key;
         key = data.key;
         failed = function(msg) {
+          challenge = null;
           socket.emit('challenge-failed', {
             message: msg
           });
-          return callback(new Error(msg));
+          callback(new Error(msg));
+          newChallenge();
+          return null;
         };
-        return this.storage.getCredentials(key, function(error, credentials) {
+        if (!challenge) {
+          failed("Operation out of order, no challenge has been issued");
+        }
+        this.storage.getCredentials(key, function(error, credentials) {
           var hmac, signature;
           if (error) {
-            return failed("Could not load credentials for " + key);
+            failed("Could not load credentials for " + key);
           } else if (!credentials) {
-            return failed("Could not find the account " + key);
+            failed("Could not find the account " + key);
           } else {
             hmac = crypto.createHmac('sha1', credentials.secret);
             hmac.update(key);
             hmac.update(challenge);
             signature = hmac.digest('hex');
             if (signature !== data.signature) {
-              return failed("Signature mismatch");
+              failed("Signature mismatch");
             } else {
               socket.emit('challenge-success', {
                 key: credentials.key,
                 admin: credentials.admin
               });
-              return callback(false, credentials);
+              callback(false, credentials);
             }
           }
+          return null;
         });
+        return null;
       }, this));
+      return newChallenge();
     };
     return SigningAuth;
   })();

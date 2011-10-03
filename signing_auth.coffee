@@ -16,7 +16,7 @@ exports.SigningAuth = class SigningAuth
     An object implementing the methods checkNonce(credentials, nonce, callback) where callback is callback(error, valid) 
     and getCredentials(key, callback) where callback is callback(error, credentials).
   ###
-  constructor: (@storage)->
+  constructor: (@storage, @connect = null)->
     storageInterface = ['checkNonce', 'getCredentials']
     for method in storageInterface
       if not @storage[method]? or typeof @storage[method] isnt 'function'
@@ -26,7 +26,7 @@ exports.SigningAuth = class SigningAuth
   ###
   Checks the signature of a parsed url.
   ###
-  validateSignature = (puri, requestReceived, credentials, callback)->
+  validateSignature: (puri, requestReceived, credentials, callback)->
     # Check that we have all required fields.
     required = ['signing_key', 'signing_nonce', 'signing_body_hash', 'signing_signature', 'signing_timestamp']
     for key in required
@@ -84,6 +84,12 @@ exports.SigningAuth = class SigningAuth
           return next(error)
         next()
 
+    serveStatic = if @connect
+      @connect.static(__dirname + '/public_html')
+    else
+      (req, res, next)->
+        next()
+
     (req, res, next)=>
       if req.body
         return next()
@@ -94,7 +100,10 @@ exports.SigningAuth = class SigningAuth
 
       # Signing auth only deals with POST requests.
       if req.method isnt 'POST'
-        next()
+        if req.method is 'GET' and puri.pathname.indexOf('/signing.auth/') is 0
+          serveStatic(req, res, next)
+        else
+          next()
       # Let unsigned request pass through with just body parsing.
       else if not puri.query.signing_signature?
         return justParseBody req, next
@@ -116,7 +125,7 @@ exports.SigningAuth = class SigningAuth
     A callback function taking the following parameters:
     error, body, puri and credentials
   ###
-  parseRequest = (req, callback)->
+  parseRequest: (req, callback)->
     req.setEncoding 'utf-8'
     shasum = crypto.createHash 'sha256'
     puri = url.parse req.url, yes
@@ -148,15 +157,26 @@ exports.SigningAuth = class SigningAuth
   ###
   Starts a challenge-response handshake on a web-socket.
   ###
-  issueChallenge = (socket, callback)->
-    challenge = utilities.nonce(64)
-    socket.emit 'challenge', sign:challenge, (data)=>
+  issueChallenge: (socket, callback)->
+    challenge = null
+    newChallenge = ()->
+      challenge = utilities.nonce(64)
+      socket.emit 'challenge', sign:challenge
+      null
+
+    socket.on 'challenge-response', (data)=>
       key = data.key
 
       # Helper function to send a failure response.
       failed = (msg)->
+        challenge = null
         socket.emit 'challenge-failed', message: msg
         callback new Error(msg)
+        newChallenge()
+        null
+
+      if not challenge
+        failed "Operation out of order, no challenge has been issued"
 
       @storage.getCredentials key, (error, credentials)->
         if error
@@ -177,3 +197,8 @@ exports.SigningAuth = class SigningAuth
               key: credentials.key
               admin: credentials.admin
             callback no, credentials
+        null
+      null
+
+    newChallenge()
+
