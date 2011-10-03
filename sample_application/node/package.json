@@ -31,5 +31,5 @@
     "node": ">=0.4.8"
   },
   "directories": {},
-  "main": "./signing_auth.js"
+  "main": "./app"
 }
