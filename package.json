@@ -1,7 +1,7 @@
 {
   "name": "signing_auth",
-  "version": "0.0.1",
-  "description": "Simple request signing authentication based on OAuth but greatly simplified. Useful when you need simple authentication of POST request between the server and client.",
+  "version": "0.0.2",
+  "description": "Simple request signing authentication inspired by OAuth but greatly simplified. Useful when you need simple authentication of POST request between the server and client.",
   "keywords": ["http", "security", "signing"],
   "maintainers": [{
     "name": "Hugo Wetterberg",

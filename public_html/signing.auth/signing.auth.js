@@ -105,7 +105,7 @@
         this.trigger('responding', this.automaticResponse);
         console.log("Signing " + key + this.challenge + " with " + secret);
         signature = Crypto.HMAC(Crypto.SHA1, key + this.challenge, secret);
-        return socket.emit('challenge-response', {
+        return this.socket.emit('challenge-response', {
           key: key,
           signature: signature
         });

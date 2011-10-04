@@ -84,7 +84,7 @@
       @trigger 'responding', @automaticResponse
       console.log("Signing " + key + @challenge + " with " + secret)
       signature = Crypto.HMAC(Crypto.SHA1, key + @challenge, secret)
-      socket.emit 'challenge-response',
+      @socket.emit 'challenge-response',
         key: key
         signature: signature
   null
