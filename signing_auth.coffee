@@ -110,7 +110,9 @@ exports.SigningAuth = class SigningAuth
       else
         @parseRequest req, (error, body, puri, credentials)->
           if error
-            next(error)
+            res.writeHead 401, error.message,
+              'Content-Type': 'text/plain'
+            res.end error.message
           else
             req.body = body
             req.signedBy = credentials

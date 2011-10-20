@@ -116,7 +116,10 @@
         } else {
           return this.parseRequest(req, function(error, body, puri, credentials) {
             if (error) {
-              return next(error);
+              res.writeHead(401, error.message, {
+                'Content-Type': 'text/plain'
+              });
+              return res.end(error.message);
             } else {
               req.body = body;
               req.signedBy = credentials;
